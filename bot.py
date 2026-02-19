@@ -51,7 +51,10 @@ _setup: dict = {}   # user_id -> {"step": str, "roles": list, "setup_msg_id": in
 def _api(method: str, payload: dict) -> dict:
     try:
         r = httpx.post(f"{API}/{method}", json=payload, timeout=15)
-        return r.json()
+        data = r.json()
+        if not data.get("ok"):
+            print(f"[bot] API {method} failed: {data.get('description', data)}")
+        return data
     except Exception as e:
         print(f"[bot] API error ({method}): {e}")
         return {}
@@ -92,9 +95,8 @@ def edit_text(msg_id: int, text: str, keyboard: dict = None) -> None:
         "message_id": msg_id,
         "text":       text,
         "parse_mode": "Markdown",
-        "disable_web_page_preview": True,
+        "reply_markup": keyboard if keyboard else {"inline_keyboard": []},
     }
-    payload["reply_markup"] = keyboard if keyboard else {"inline_keyboard": []}
     _api("editMessageText", payload)
 
 
@@ -230,7 +232,12 @@ def handle_callback(cq: dict) -> None:
                 state["roles"].remove(role)
             else:
                 state["roles"].append(role)
-            edit_keyboard(msg_id, _role_keyboard(state["roles"]))
+            edit_text(
+                msg_id,
+                "*What roles are you looking for?*\n"
+                "_Tap to select one or more, then press Continue:_",
+                _role_keyboard(state["roles"]),
+            )
 
         elif data == "roles_done":
             if not state["roles"]:
