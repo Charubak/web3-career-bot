@@ -1,6 +1,6 @@
 import httpx
 from datetime import datetime, timezone
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SILENT_IF_EMPTY, JOB_ROLES
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, SILENT_IF_EMPTY
 from filters import _parse_posted_date
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
@@ -8,22 +8,27 @@ MAX_MSG_LEN  = 4096
 
 
 def _role_label() -> str:
-    """Human-readable label for the configured roles (e.g. 'Marketing', 'Engineering & BD')."""
-    presets = {"marketing", "engineering", "legal", "design", "product", "operations", "bd", "research", "data"}
-    labels  = [r.title() for r in JOB_ROLES if r in presets]
+    try:
+        import prefs
+        roles = prefs.load().get("roles", ["marketing"])
+    except Exception:
+        try:
+            from config import JOB_ROLES
+            roles = JOB_ROLES
+        except Exception:
+            roles = ["marketing"]
+    known = {"marketing","engineering","legal","design","product","operations","bd","research","data"}
+    labels = [r.title() for r in roles if r in known]
     if not labels:
-        labels = [JOB_ROLES[0].title()] if JOB_ROLES else ["Web3"]
-    return " & ".join(labels[:2])   # cap at 2 to keep header short
+        labels = [roles[0].title()] if roles else ["Web3"]
+    return " & ".join(labels[:2])
 
 
 def _sort_by_recency(jobs: list) -> list:
-    """Sort newest-first; jobs with unparseable dates go to the end."""
     _epoch = datetime.min.replace(tzinfo=timezone.utc)
-
     def _key(j):
         dt = _parse_posted_date(j.posted)
         return dt if dt else _epoch
-
     return sorted(jobs, key=_key, reverse=True)
 
 
@@ -38,7 +43,6 @@ def _format_job(job) -> str:
 
 
 def _split_messages(lines: list) -> list:
-    """Chunk formatted job strings into Telegram-safe messages (≤4096 chars each)."""
     messages, current = [], ""
     for line in lines:
         block = line + "\n\n"
@@ -57,9 +61,9 @@ def _send(text: str) -> None:
     resp = httpx.post(
         f"{TELEGRAM_API}/sendMessage",
         json={
-            "chat_id":                 TELEGRAM_CHAT_ID,
-            "text":                    text,
-            "parse_mode":             "Markdown",
+            "chat_id":                  TELEGRAM_CHAT_ID,
+            "text":                     text,
+            "parse_mode":              "Markdown",
             "disable_web_page_preview": True,
         },
         timeout=15,
