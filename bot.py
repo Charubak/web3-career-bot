@@ -140,12 +140,26 @@ def _location_keyboard() -> dict:
 # ---------------------------------------------------------------------------
 
 def start_setup(user_id: str) -> None:
-    _setup[user_id] = {"step": "roles", "roles": [], "setup_msg_id": None}
+    _setup[user_id] = {"step": "intro", "roles": [], "setup_msg_id": None}
     data = send(
-        "*Welcome to Web3 Career Bot!* 🤖\n\n"
-        "Let's get you set up. *What roles are you looking for?*\n"
-        "_Tap to select one or more, then press Continue:_",
-        _role_keyboard([]),
+        "*Welcome to Web3 Career Bot* 🤖\n\n"
+        "I scan *15 Web3 job sources* every 6 hours and send you only the roles that match what you're looking for — straight to this chat.\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "*What I can track:*\n"
+        "📣 Marketing · ⚙️ Engineering · ⚖️ Legal\n"
+        "🎨 Design · 📦 Product · 🤝 BD / Sales\n"
+        "🔧 Operations · 🔬 Research · 📊 Data\n\n"
+        "*Location options:*\n"
+        "🌍 Remote only · 📍 Specific cities · 🔓 Anywhere\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "*Commands:*\n"
+        "/jobs — fetch latest matching jobs now\n"
+        "/new — show only jobs you haven't seen yet\n"
+        "/twitter — X profiles of companies hiring\n"
+        "/settings — change your role or location\n"
+        "/clear — wipe all bot messages\n\n"
+        "Let's get you set up — tap below to choose your roles 👇",
+        {"inline_keyboard": [[{"text": "🚀  Get Started", "callback_data": "get_started"}]]},
     )
     if data.get("ok"):
         _setup[user_id]["setup_msg_id"] = data["result"]["message_id"]
@@ -196,6 +210,17 @@ def handle_callback(cq: dict) -> None:
         return
 
     step = state["step"]
+
+    # ── Intro → role selection ──────────────────────────────────────────────
+    if data == "get_started":
+        state["step"] = "roles"
+        edit_text(
+            msg_id,
+            "*What roles are you looking for?*\n"
+            "_Tap to select one or more, then press Continue:_",
+            _role_keyboard([]),
+        )
+        return
 
     # ── Role selection ──────────────────────────────────────────────────────
     if step == "roles":
